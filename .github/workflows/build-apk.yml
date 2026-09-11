@@ -1,1 +1,46 @@
+name: Build MOSSLYA KIDS APK
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install unzip
+        run: sudo apt-get update && sudo apt-get install -y unzip
+
+      - name: Extract Flutter project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" -print -quit)
+          mkdir -p flutter_project
+          unzip -q "$ZIP_FILE" -d flutter_project
+
+      - name: Find Flutter project
+        run: |
+          PUBSPEC=$(find flutter_project -name pubspec.yaml -print -quit)
+          echo "PROJECT_DIR=$(dirname "$PUBSPEC")" >> "$GITHUB_ENV"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+
+      - name: Get dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build apk --debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosslya-kids-apk
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-debug.apk
