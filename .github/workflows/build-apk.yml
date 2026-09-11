@@ -17,21 +17,25 @@ jobs:
       - name: Extract Flutter project
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" -print -quit)
+
           if [ -z "$ZIP_FILE" ]; then
             echo "Flutter project ZIP not found"
             exit 1
           fi
-          mkdir -p flutter_project
-          unzip -q "$ZIP_FILE" -d flutter_project
+
+          mkdir -p flutter_source
+          unzip -q "$ZIP_FILE" -d flutter_source
 
       - name: Find Flutter project
         run: |
-          PUBSPEC=$(find flutter_project -name pubspec.yaml -print -quit)
+          PUBSPEC=$(find flutter_source -name pubspec.yaml -print -quit)
+
           if [ -z "$PUBSPEC" ]; then
             echo "pubspec.yaml not found"
             exit 1
           fi
-          echo "PROJECT_DIR=$(dirname "$PUBSPEC")" >> "$GITHUB_ENV"
+
+          echo "SOURCE_DIR=$(dirname "$PUBSPEC")" >> "$GITHUB_ENV"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -39,16 +43,30 @@ jobs:
           flutter-version: "3.24.5"
           channel: stable
 
+      - name: Create fresh Flutter Android project
+        run: |
+          flutter create --platforms=android mosslya_build
+
+      - name: Copy MOSSLYA KIDS app files
+        run: |
+          cp -r "$SOURCE_DIR/lib" mosslya_build/
+          
+          if [ -d "$SOURCE_DIR/assets" ]; then
+            cp -r "$SOURCE_DIR/assets" mosslya_build/
+          fi
+          
+          cp "$SOURCE_DIR/pubspec.yaml" mosslya_build/pubspec.yaml
+
       - name: Install dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
+        working-directory: mosslya_build
         run: flutter pub get
 
       - name: Build APK
-        working-directory: ${{ env.PROJECT_DIR }}
+        working-directory: mosslya_build
         run: flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: mosslya-kids-apk
-          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-debug.apk
+          path: mosslya_build/build/app/outputs/flutter-apk/app-debug.apk
